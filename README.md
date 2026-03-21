@@ -1,225 +1,158 @@
-# 🤖 AI页面助手 - Chrome扩展
+# browser-use-hotel
 
-一个基于Chrome扩展Manifest V3开发的AI聊天助手，提供悬浮弹窗界面，支持多AI模型对话。
+AI Browser Agent 自动操控浏览器，实时搜索携程、去哪儿、同程三大酒店平台，截图直播比价。
 
-## ✨ 主要特性
-
-- 🚀 **悬浮弹窗界面** - 右下角悬浮设计，不影响页面操作
-- 🧠 **多AI模型支持** - 支持OpenAI、Claude、DeepSeek等多种主流模型
-- 💬 **实时对话** - 支持流式响应和实时交互
-- ⚙️ **灵活配置** - 完整的设置页面，支持参数调节
-- 💾 **本地存储** - 对话历史本地保存，保护隐私
-- 🎨 **现代化UI** - 响应式设计，支持深色模式
-- 🔒 **隐私保护** - API密钥本地存储，不上传任何数据
-
-## 📦 安装方式
-
-### 方法一：从Chrome网上应用店安装（推荐）
-1. 打开 [Chrome网上应用店](https://chrome.google.com/webstore)
-2. 搜索 "AI页面助手"
-3. 点击"添加到Chrome"
-
-### 方法二：开发者模式安装
-1. 下载或克隆此项目到本地
-2. 打开Chrome浏览器，输入 `chrome://extensions/`
-3. 开启右上角"开发者模式"
-4. 点击"加载已解压的扩展程序"
-5. 选择项目文件夹 `ai-chat-chrome`
-
-## 🚀 使用指南
-
-### 初次使用
-1. 安装扩展后，点击扩展图标 ⚙️
-2. 在设置页面配置您的AI API密钥
-3. 选择您偏好的AI模型和参数
-4. 保存设置
-
-### 开始对话
-1. 在任何网页上点击右下角的AI助手按钮 🤖
-2. 在弹出的聊天框中输入您的问题
-3. 按Enter键发送，或点击发送按钮
-4. AI会实时回复您的消息
-
-### 快捷操作
-- **点击扩展图标** - 查看状态和最近对话
-- **新建对话** - 开始新的对话会话
-- **设置页面** - 调整AI模型和参数
-- **最小化** - 临时隐藏聊天窗口
-
-## ⚙️ 配置说明
-
-### 支持的AI服务
-
-#### OpenAI
-- **支持模型**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
-- **API密钥**: 在 [OpenAI平台](https://platform.openai.com/api-keys) 获取
-
-#### Claude (Anthropic)
-- **支持模型**: Claude 3 Opus, Sonnet, Haiku
-- **API密钥**: 在 [Anthropic控制台](https://console.anthropic.com/) 获取
-
-#### DeepSeek
-- **支持模型**: DeepSeek Chat, DeepSeek Coder
-- **API密钥**: 在 [DeepSeek平台](https://platform.deepseek.com/api_keys) 获取
-
-### 参数设置
-- **温度 (Temperature)**: 控制输出的随机性 (0.0-2.0)
-  - 较低值: 更确定性回答
-  - 较高值: 更创造性回答
-- **最大响应长度**: 控制AI回复的最大token数
-- **显示通知**: 是否在收到回复时显示浏览器通知
-
-## 🎯 界面说明
-
-### 悬浮聊天窗口
-- **消息区域**: 显示对话历史
-- **输入框**: 支持多行输入，按Shift+Enter换行
-- **控制按钮**: 最小化、设置、关闭
-
-### 扩展弹窗
-- **状态显示**: API连接状态、当前模型、对话数量
-- **快速操作**: 打开聊天、新建对话、进入设置
-- **最近对话**: 显示最近的对话记录
-
-### 设置页面
-- **AI助手**: 配置API和模型参数
-- **通用设置**: 界面偏好和数据管理
-- **关于**: 版本信息和帮助链接
-
-## 🔧 开发指南
-
-### 项目结构
-```
-ai-chat-chrome/
-├── manifest.json          # 扩展配置文件
-├── src/
-│   ├── background.js      # 后台服务脚本
-│   ├── content.js         # 内容脚本（悬浮UI）
-│   ├── styles.css         # 全局样式
-│   ├── popup.html/js      # 扩展弹窗
-│   └── options.html/js    # 设置页面
-├── assets/
-│   ├── icon.svg           # 图标源文件
-│   └── README.md          # 图标生成说明
-├── test_page.html         # 功能测试页面
-└── README.md              # 项目说明
-```
-
-### 本地开发
-1. 克隆项目到本地
-2. 在Chrome中开启开发者模式
-3. 加载扩展程序进行测试
-4. 修改代码后刷新扩展
-
-### 构建发布
-1. 验证所有文件完整性
-2. 使用 `test_page.html` 测试所有功能
-3. 验证manifest.json配置正确
-4. 压缩为ZIP文件（排除不必要的文件）
-5. 提交到Chrome网上应用店
-
-#### 构建命令
-```bash
-# 在项目根目录执行
-zip -r ai-chat-extension-v1.0.0.zip . -x "*.git*" "*.DS_Store" "node_modules/*" "*.log"
-```
-
-### 调试技巧
-- 使用 `console.log()` 在background script中调试
-- 在content script中使用 `console.log()` 调试UI
-- 使用Chrome开发者工具的"扩展"面板
-- 查看 `chrome://extensions/` 的错误信息
-- 使用 `test_page.html` 进行功能测试
-
-### 测试页面
-项目包含 `test_page.html` 测试页面，用于验证扩展的基本功能：
-- 扩展安装状态检查
-- 消息传递机制测试
-- 配置读写功能测试
-- UI触发功能测试
-
-在Chrome中打开此页面可以快速验证扩展是否正常工作。
-
-## 🔒 隐私与安全
-
-### 数据存储
-- **API密钥**: 仅存储在本地Chrome存储中
-- **对话历史**: 本地存储，不上传到任何服务器
-- **使用统计**: 不收集任何个人数据
-
-### 权限说明
-- `storage`: 保存配置和对话历史
-- `activeTab`: 在当前标签页注入聊天界面
-- `scripting`: 动态注入内容脚本
-- `host_permissions`: 访问AI服务API（仅限指定域名）
-
-### 安全措施
-- API密钥加密存储
-- HTTPS传输保证
-- 本地数据隔离
-- 无第三方数据收集
-
-## 🐛 故障排除
-
-### 常见问题
-
-**Q: 扩展无法加载？**
-A: 确认Chrome版本支持Manifest V3，检查manifest.json语法
-
-**Q: AI无法回复？**
-A: 检查API密钥是否正确，确认网络连接正常
-
-**Q: 聊天窗口不显示？**
-A: 刷新页面，确认content script已注入
-
-**Q: 设置无法保存？**
-A: 检查Chrome存储权限，尝试重启浏览器
-
-### 获取帮助
-- 查看浏览器控制台错误信息
-- 检查 `chrome://extensions/` 的扩展详情
-- 提交GitHub Issue获取技术支持
-
-## 📝 更新日志
-
-### v1.0.0 (2024-01-XX)
-- ✨ 初始版本发布
-- 🚀 支持OpenAI、Claude、DeepSeek
-- 💬 悬浮聊天界面
-- ⚙️ 完整的设置页面
-- 💾 本地对话历史存储
-- 🧪 添加功能测试页面
-- 🛡️ 改进错误处理和边界情况
-- 🎨 使用SVG图标，提升兼容性
-- 🔧 优化消息传递机制
-- 🚀 性能优化和缓存机制
-- 🔒 安全性增强和API密钥验证
-- 📱 响应式设计和无障碍访问
-- 🎯 配置验证和跨页面同步
-
-## 🤝 贡献指南
-
-欢迎提交Issue和Pull Request！
-
-1. Fork此项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启Pull Request
-
-## 📄 许可证
-
-本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🙏 致谢
-
-感谢以下开源项目的贡献：
-- Chrome Extension Manifest V3
-- 各AI服务提供商的API
-- 开源社区的技术支持
+**Live Demo** &rarr; [hotel.rxcloud.group](https://hotel.rxcloud.group)
 
 ---
 
-**开发者**: AI助手团队
-**版本**: 1.0.0
-**兼容性**: Chrome 88+
+## Demo
+
+### 1. 输入酒店名称，点击"开始比价"
+
+<img src="hotel-compare/docs/screenshot-search.png" width="720" />
+
+### 2. CRT 终端风格启动动画 — 三个 Agent 同时启动
+
+<img src="hotel-compare/docs/screenshot-boot.png" width="720" />
+
+### 3. Agent 操控浏览器搜索，截图实时推送
+
+<img src="hotel-compare/docs/screenshot-results.png" width="720" />
+
+---
+
+## How It Works
+
+```
+用户输入酒店 → 创建任务 → Worker 轮询领取 → 启动 3 个 browser-use Agent
+                                              ↓
+                                    每个 Agent 控制一个 Chromium
+                                    → 打开携程/去哪儿/同程
+                                    → 搜索酒店、设置日期
+                                    → 提取最低价格和房型
+                                              ↓
+                              截图 + 步骤日志 → Supabase Storage & DB
+                                              ↓
+                              前端 3 秒轮询 → 实时展示截图和结果
+```
+
+## Tech Stack
+
+| Layer | Technology | Deployment |
+|-------|-----------|------------|
+| **Frontend** | Next.js 16, Tailwind CSS | [Vercel](https://vercel.com) |
+| **Database** | Supabase (PostgreSQL + Storage) | [Supabase](https://supabase.com) |
+| **Worker** | Python, [browser-use](https://github.com/browser-use/browser-use), Playwright | [Railway](https://railway.com) |
+| **LLM** | GLM-4-Plus (OpenAI-compatible API) | [ZhiPu AI](https://open.bigmodel.cn) |
+
+## Key Features
+
+- **CRT Boot Animation** — 终端风格开机动画，显示 Agent 初始化进度
+- **Screenshot Streaming** — Chromium 截图实时上传到 Supabase Storage，前端每 3 秒拉取展示
+- **Price Validation** — 价格范围过滤（¥30–50,000），防止将年份、日期误解析为价格
+- **Error Isolation** — 单平台失败不影响其他平台，每个 Agent 独立运行
+- **Structured Output** — Pydantic BaseModel 解析 Agent 输出，JSON 正则兜底
+
+## Architecture
+
+```
+hotel-compare/
+├── web/                        # Next.js frontend
+│   ├── app/page.tsx            # 主页（轮询 + 展示）
+│   ├── components/
+│   │   ├── SearchForm.tsx      # 搜索表单 → 创建 task
+│   │   ├── PlatformCard.tsx    # 平台卡片（截图 + 状态）
+│   │   ├── BootAnimation.tsx   # CRT 启动动画
+│   │   └── ComparisonTable.tsx # 比价结果表
+│   └── lib/supabase.ts         # Supabase client
+│
+├── browser-use-version/        # Python worker
+│   ├── worker.py               # 轮询任务队列
+│   ├── hotel_compare.py        # 3 平台搜索逻辑 + prompt
+│   ├── supabase_client.py      # DB/Storage 操作
+│   └── Dockerfile              # Railway 部署
+│
+└── supabase/                   # 数据库 schema
+    └── migrations/
+```
+
+## Quick Start
+
+### Frontend
+
+```bash
+cd hotel-compare/web
+npm install
+# Set env vars
+echo 'NEXT_PUBLIC_SUPABASE_URL=your_url' > .env.local
+echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key' >> .env.local
+npm run dev
+```
+
+### Worker
+
+```bash
+cd hotel-compare/browser-use-version
+uv sync
+uv run playwright install chromium
+# Set env vars
+cp .env.example .env
+# Edit .env: SUPABASE_URL, SUPABASE_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+uv run python worker.py
+```
+
+### Supabase Tables
+
+```sql
+-- tasks: 搜索任务队列
+CREATE TABLE tasks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hotel TEXT NOT NULL,
+  checkin DATE NOT NULL,
+  checkout DATE NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending','running','completed','failed')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- step_logs: Agent 步骤日志 + 截图
+CREATE TABLE step_logs (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  task_id UUID REFERENCES tasks(id),
+  platform TEXT NOT NULL,
+  step_num INT NOT NULL,
+  goal TEXT,
+  screenshot_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- results: 比价结果
+CREATE TABLE results (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  task_id UUID REFERENCES tasks(id),
+  platform TEXT NOT NULL,
+  hotel_name TEXT,
+  lowest_price NUMERIC,
+  room_type TEXT,
+  page_url TEXT,
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+## Two Engine Comparison
+
+本项目用两种 Browser Agent 方案实现同一个任务：
+
+| | browser-use（服务端） | page-agent（客户端） |
+|---|---|---|
+| **运行时** | Python + Playwright（headless） | Chrome Extension（用户浏览器） |
+| **LLM** | GLM-4-Plus via API | OpenAI API |
+| **部署** | Railway Docker | 本地 Chrome |
+| **可观测性** | 截图 + step_logs | Console logs |
+| **反爬** | headless 检测风险 | 真实用户浏览器 |
+| **代码位置** | `browser-use-version/` | `page-agent-version/` |
+
+## License
+
+MIT
