@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "酒店比价助手 (page-agent)",
+  "version": "1.0.0",
+  "description": "基于 page-agent 的跨平台酒店比价工具",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.trip.com/*",
+    "https://hotel.qunar.com/*",
+    "https://hotel.ly.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "酒店比价"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.trip.com/*",
+        "https://hotel.qunar.com/*",
+        "https://hotel.ly.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/page-agent.iife.js"],
+      "matches": [
+        "https://www.trip.com/*",
+        "https://hotel.qunar.com/*",
+        "https://hotel.ly.com/*"
+      ]
+    }
+  ]
+}
