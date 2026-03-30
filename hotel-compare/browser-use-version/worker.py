@@ -1,4 +1,4 @@
-"""Worker — 轮询 Supabase 任务队列，执行 browser-use 搜索"""
+"""Worker — 轮询 Supabase 任务队列，并行执行 browser-use 搜索"""
 
 import asyncio
 import time
@@ -11,8 +11,20 @@ from platform_config import ALL_PLATFORMS
 from retry_strategies import search_with_retry
 
 
+async def _search_one_platform(config, hotel, checkin, checkout, task_id):
+    """搜索单个平台，返回 (config, result_or_none, error_or_none)"""
+    logs = []  # 每个平台独立的 logs 列表（并行安全）
+    try:
+        result = await search_with_retry(
+            config, hotel, checkin, checkout, logs, task_id=task_id,
+        )
+        return (config, result, None)
+    except Exception as e:
+        return (config, None, str(e))
+
+
 async def process_task(task: dict):
-    """处理一个搜索任务"""
+    """并行处理三个平台的搜索任务"""
     task_id = task["id"]
     hotel = task["hotel"]
     checkin = task["checkin"]
@@ -20,31 +32,33 @@ async def process_task(task: dict):
     print(f"\n{'='*50}")
     print(f"Processing: {hotel} | {checkin} → {checkout}")
     print(f"Task ID: {task_id}")
+    print(f"Running 3 platforms in parallel...")
 
-    logs = []
-    for config in ALL_PLATFORMS:
-        print(f"\n  Searching {config.name}...")
-        try:
-            result = await search_with_retry(
-                config, hotel, checkin, checkout, logs, task_id=task_id,
+    # 并行启动三个平台搜索
+    results = await asyncio.gather(*[
+        _search_one_platform(config, hotel, checkin, checkout, task_id)
+        for config in ALL_PLATFORMS
+    ])
+
+    # 写入结果
+    for config, result, error in results:
+        if error:
+            insert_result(task_id, config.name, error=error)
+            print(f"  {config.name}: Error - {error}")
+        elif result:
+            insert_result(
+                task_id, config.name,
+                hotel_name=result.hotel_name,
+                lowest_price=result.lowest_price,
+                room_type=result.room_type,
+                page_url=result.url,
+                strategy_name=getattr(result, '_strategy_name', None),
+                attempt_number=getattr(result, '_attempt_number', None),
             )
-            if result:
-                insert_result(
-                    task_id, config.name,
-                    hotel_name=result.hotel_name,
-                    lowest_price=result.lowest_price,
-                    room_type=result.room_type,
-                    page_url=result.url,
-                    strategy_name=getattr(result, '_strategy_name', None),
-                    attempt_number=getattr(result, '_attempt_number', None),
-                )
-                print(f"  {config.name}: ¥{result.lowest_price:.0f} {result.room_type}")
-            else:
-                insert_result(task_id, config.name, error="All strategies exhausted")
-                print(f"  {config.name}: No result (all strategies exhausted)")
-        except Exception as e:
-            insert_result(task_id, config.name, error=str(e))
-            print(f"  {config.name}: Error - {e}")
+            print(f"  {config.name}: ¥{result.lowest_price:.0f} {result.room_type}")
+        else:
+            insert_result(task_id, config.name, error="All strategies exhausted")
+            print(f"  {config.name}: No result (all strategies exhausted)")
 
     update_task_status(task_id, "completed")
     print(f"\nTask {task_id} completed.")
