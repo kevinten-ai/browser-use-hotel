@@ -35,7 +35,7 @@ async def run_platform_search(
     # Build task prompt from template — robustness rules go INTO the prompt
     # (not extend_system_message, which interferes with browser-use's internal prompts)
     url = (strategy_override or {}).get("url", config.urls[0])
-    max_steps = (strategy_override or {}).get("max_steps", 15)
+    max_steps = (strategy_override or {}).get("max_steps", 25)
     prompt_suffix = (strategy_override or {}).get("prompt_suffix", "")
     task_prompt = config.task_template.format(
         hotel=hotel, checkin=checkin, checkout=checkout, url=url,

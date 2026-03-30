@@ -7,19 +7,17 @@ from reflection import analyze_failure, is_plausible_result
 
 RETRY_STRATEGIES = {
     "携程": [
-        {"name": "desktop", "url": "https://hotels.ctrip.com/", "max_steps": 15},
-        {"name": "mobile", "url": "https://m.ctrip.com/hotel/", "max_steps": 12},
-        {"name": "list_only", "url": "https://hotels.ctrip.com/", "max_steps": 10,
-         "prompt_suffix": "不要进入详情页，直接从搜索结果列表中提取最低价格和房型。"},
+        {"name": "desktop", "url": "https://hotels.ctrip.com/", "max_steps": 25},
+        {"name": "mobile", "url": "https://m.ctrip.com/hotel/", "max_steps": 20},
     ],
     "去哪儿": [
-        {"name": "direct", "url": "https://hotel.qunar.com/", "max_steps": 15},
-        {"name": "portal", "url": "https://www.qunar.com/", "max_steps": 15},
-        {"name": "mobile", "url": "https://touch.qunar.com/h5/hotel/", "max_steps": 12},
+        {"name": "direct", "url": "https://hotel.qunar.com/", "max_steps": 25},
+        {"name": "portal", "url": "https://www.qunar.com/", "max_steps": 25},
+        {"name": "mobile", "url": "https://touch.qunar.com/h5/hotel/", "max_steps": 20},
     ],
     "同程": [
-        {"name": "main", "url": "https://www.ly.com/", "max_steps": 15},
-        {"name": "mobile", "url": "https://m.ly.com/hotel/", "max_steps": 12},
+        {"name": "main", "url": "https://www.ly.com/", "max_steps": 25},
+        {"name": "mobile", "url": "https://m.ly.com/hotel/", "max_steps": 20},
     ],
 }
 
