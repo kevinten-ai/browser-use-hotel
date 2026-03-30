@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 420px; padding: 16px; font-family: -apple-system, sans-serif; font-size: 14px; }
+    h1 { font-size: 18px; margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; color: #333; }
+    input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .dates { display: flex; gap: 8px; }
+    .dates input { flex: 1; }
+    button { width: 100%; padding: 10px; background: #4F46E5; color: white;
+             border: none; border-radius: 6px; font-size: 15px; cursor: pointer; font-weight: 600; }
+    button:hover { background: #4338CA; }
+    button:disabled { background: #9CA3AF; cursor: not-allowed; }
+
+    .status { margin-top: 16px; }
+    .platform-row { display: flex; align-items: center; padding: 8px;
+                    border-bottom: 1px solid #f0f0f0; }
+    .platform-name { width: 60px; font-weight: 600; }
+    .platform-status { flex: 1; color: #666; }
+    .platform-price { font-weight: 700; color: #059669; }
+    .platform-best { background: #ECFDF5; border-radius: 4px; }
+
+    .result-box { margin-top: 16px; padding: 12px; background: #F0FDF4;
+                  border-radius: 8px; text-align: center; }
+    .result-box .price { font-size: 24px; font-weight: 700; color: #059669; }
+
+    .log { margin-top: 12px; max-height: 200px; overflow-y: auto;
+           font-size: 12px; color: #666; background: #F9FAFB;
+           padding: 8px; border-radius: 6px; }
+    .log-entry { padding: 2px 0; border-bottom: 1px solid #F3F4F6; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>🏨 酒店跨平台比价</h1>
+  <p style="color: #666; font-size: 12px; margin-bottom: 12px;">基于 page-agent — 客户端浏览器 Agent 方案</p>
+
+  <div class="form-group">
+    <label>酒店名称</label>
+    <input type="text" id="hotel" value="北京国贸大酒店" placeholder="输入酒店名称">
+  </div>
+
+  <div class="form-group">
+    <label>日期</label>
+    <div class="dates">
+      <input type="date" id="checkin">
+      <input type="date" id="checkout">
+    </div>
+  </div>
+
+  <button id="startBtn">🔍 开始比价</button>
+
+  <div id="statusSection" class="status hidden">
+    <div id="ctripRow" class="platform-row">
+      <span class="platform-name">携程</span>
+      <span class="platform-status" id="ctripStatus">⏳ 等待中</span>
+      <span class="platform-price" id="ctripPrice"></span>
+    </div>
+    <div id="qunarRow" class="platform-row">
+      <span class="platform-name">去哪儿</span>
+      <span class="platform-status" id="qunarStatus">⏳ 等待中</span>
+      <span class="platform-price" id="qunarPrice"></span>
+    </div>
+    <div id="tongchengRow" class="platform-row">
+      <span class="platform-name">同程</span>
+      <span class="platform-status" id="tongchengStatus">⏳ 等待中</span>
+      <span class="platform-price" id="tongchengPrice"></span>
+    </div>
+  </div>
+
+  <div id="resultBox" class="result-box hidden">
+    <div>💰 最低价</div>
+    <div class="price" id="bestPrice"></div>
+    <div id="bestPlatform" style="color: #666;"></div>
+  </div>
+
+  <div id="logSection" class="log hidden"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
