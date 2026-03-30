@@ -38,7 +38,7 @@ async def run_platform_search(
     """
 
     llm = ChatOpenAI(
-        model=os.getenv("OPENAI_MODEL", "glm-4.6v-flash"),
+        model=os.getenv("OPENAI_MODEL", "glm-4-plus"),
         base_url=os.getenv("OPENAI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
         dont_force_structured_output=True,
     )
@@ -58,10 +58,19 @@ async def run_platform_search(
     if extra_context:
         system_ext += f"\n\n历史成功操作参考：\n{extra_context}"
 
-    browser = BrowserSession(headless=(task_id is not None))
+    browser = BrowserSession(
+        headless=(task_id is not None),
+        wait_between_actions=1.5,               # Avoid 429 from hotel sites
+        minimum_wait_page_load_time=3.0,         # Wait for SPA content to render
+    )
 
     if task_id:
-        callback = make_streaming_callback(config.name, task_id, browser)
+        _supabase_cb = make_streaming_callback(config.name, task_id, browser)
+        # Wrap: persist to Supabase AND populate in-memory logs for failure analysis
+        async def callback(browser_state, agent_output, step_num):
+            await _supabase_cb(browser_state, agent_output, step_num)
+            goal = (agent_output.next_goal if agent_output else "") or ""
+            logs.append({"platform": config.name, "step": step_num, "goal": goal})
     else:
         callback = make_step_callback(config.name, logs)
 
@@ -87,7 +96,7 @@ async def run_platform_search(
         browser=browser,
         register_new_step_callback=callback,
         register_done_callback=on_done,
-        use_vision=True,
+        use_vision=False,                    # glm-4-plus is text-only; vision needs glm-4v
         max_actions_per_step=5,
         max_failures=7,
         enable_planning=True,
