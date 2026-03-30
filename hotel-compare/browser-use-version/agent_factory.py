@@ -24,18 +24,7 @@ async def run_platform_search(
     strategy_override: dict = None,
     extra_context: str = "",
 ) -> Optional[HotelPrice]:
-    """Run a single platform search with full robustness features.
-
-    Args:
-        config: Platform configuration (urls, task_template, hints, etc.)
-        hotel: Hotel name to search for
-        checkin: Check-in date (YYYY-MM-DD)
-        checkout: Check-out date (YYYY-MM-DD)
-        logs: List to append step logs to (used in CLI mode)
-        task_id: If provided, enables headless mode + streaming callbacks to Supabase
-        strategy_override: Optional dict with keys: url, max_steps, prompt_suffix
-        extra_context: Optional historical success context to inject into system message
-    """
+    """Run a single platform search with full robustness features."""
 
     llm = ChatOpenAI(
         model=os.getenv("OPENAI_MODEL", "glm-4-plus"),
@@ -43,7 +32,8 @@ async def run_platform_search(
         dont_force_structured_output=True,
     )
 
-    # Build task prompt from template
+    # Build task prompt from template — robustness rules go INTO the prompt
+    # (not extend_system_message, which interferes with browser-use's internal prompts)
     url = (strategy_override or {}).get("url", config.urls[0])
     max_steps = (strategy_override or {}).get("max_steps", 15)
     prompt_suffix = (strategy_override or {}).get("prompt_suffix", "")
@@ -52,21 +42,17 @@ async def run_platform_search(
     )
     if prompt_suffix:
         task_prompt += f"\n\n{prompt_suffix}"
-
-    # Build extend_system_message
-    system_ext = ROBUSTNESS_RULES + "\n" + config.robustness_hints
     if extra_context:
-        system_ext += f"\n\n历史成功操作参考：\n{extra_context}"
+        task_prompt += f"\n\n历史成功操作参考：\n{extra_context}"
 
     browser = BrowserSession(
         headless=(task_id is not None),
-        wait_between_actions=1.5,               # Avoid 429 from hotel sites
-        minimum_wait_page_load_time=3.0,         # Wait for SPA content to render
+        wait_between_actions=1.5,
+        minimum_wait_page_load_time=3.0,
     )
 
     if task_id:
         _supabase_cb = make_streaming_callback(config.name, task_id, browser)
-        # Wrap: persist to Supabase AND populate in-memory logs for failure analysis
         async def callback(browser_state, agent_output, step_num):
             await _supabase_cb(browser_state, agent_output, step_num)
             goal = (agent_output.next_goal if agent_output else "") or ""
@@ -90,19 +76,17 @@ async def run_platform_search(
         except Exception as e:
             print(f"  [{config.name}] Context store failed: {e}")
 
+    # Keep Agent params minimal — closer to original working config.
+    # glm-4-plus struggles with complex AgentOutput schemas (45 validation errors
+    # when planning/extra fields are required). Simpler = fewer LLM parse failures.
     agent = Agent(
         task=task_prompt,
         llm=llm,
         browser=browser,
         register_new_step_callback=callback,
         register_done_callback=on_done,
-        use_vision=False,                    # glm-4-plus is text-only; vision needs glm-4v
-        max_actions_per_step=5,
-        max_failures=7,
-        enable_planning=True,
-        planning_replan_on_stall=2,
-        extend_system_message=system_ext,
-        final_response_after_failure=True,
+        use_vision=False,
+        max_actions_per_step=3,
     )
 
     try:
