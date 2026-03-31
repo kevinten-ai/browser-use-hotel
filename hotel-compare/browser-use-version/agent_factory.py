@@ -49,8 +49,8 @@ async def run_platform_search(
 
     browser = BrowserSession(
         headless=(task_id is not None),
-        wait_between_actions=1.5,
-        minimum_wait_page_load_time=3.0,
+        wait_between_actions=3.0,               # Free model has strict rate limits
+        minimum_wait_page_load_time=5.0,         # More time for SPA rendering
     )
 
     if task_id:
