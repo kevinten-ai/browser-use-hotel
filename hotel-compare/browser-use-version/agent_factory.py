@@ -27,7 +27,7 @@ async def run_platform_search(
     """Run a single platform search with full robustness features."""
 
     llm = ChatOpenAI(
-        model=os.getenv("OPENAI_MODEL", "glm-4.7"),
+        model=os.getenv("OPENAI_MODEL", "glm-4.7-flash"),
         base_url=os.getenv("OPENAI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4"),
         dont_force_structured_output=True,
     )
