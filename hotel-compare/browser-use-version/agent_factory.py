@@ -42,6 +42,8 @@ async def run_platform_search(
     )
     if prompt_suffix:
         task_prompt += f"\n\n{prompt_suffix}"
+    # Append robustness rules to the task prompt
+    task_prompt += f"\n\n{ROBUSTNESS_RULES}"
     if extra_context:
         task_prompt += f"\n\n历史成功操作参考：\n{extra_context}"
 
