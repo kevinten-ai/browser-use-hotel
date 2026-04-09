@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { StepLog, Result } from "@/lib/types";
 import SearchForm from "@/components/SearchForm";
@@ -36,38 +36,50 @@ export default function Home() {
     if (!taskId) return;
 
     const poll = async () => {
-      // Fetch step_logs
-      const { data: newSteps } = await supabase
-        .from("step_logs")
-        .select("*")
-        .eq("task_id", taskId)
-        .order("created_at", { ascending: true });
+      try {
+        // Fetch step_logs
+        const { data: newSteps, error: stepsErr } = await supabase
+          .from("step_logs")
+          .select("*")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: true });
 
-      if (newSteps && newSteps.length > stepsRef.current.length) {
-        stepsRef.current = newSteps as StepLog[];
-        setSteps(newSteps as StepLog[]);
-      }
+        if (stepsErr) {
+          console.error("Failed to fetch steps:", stepsErr.message);
+        } else if (newSteps && newSteps.length > stepsRef.current.length) {
+          const typed = newSteps as StepLog[];
+          stepsRef.current = typed;
+          setSteps(typed);
+        }
 
-      // Fetch results
-      const { data: newResults } = await supabase
-        .from("results")
-        .select("*")
-        .eq("task_id", taskId);
+        // Fetch results
+        const { data: newResults, error: resultsErr } = await supabase
+          .from("results")
+          .select("*")
+          .eq("task_id", taskId);
 
-      if (newResults && newResults.length > resultsRef.current.length) {
-        resultsRef.current = newResults as Result[];
-        setResults(newResults as Result[]);
-      }
+        if (resultsErr) {
+          console.error("Failed to fetch results:", resultsErr.message);
+        } else if (newResults && newResults.length > resultsRef.current.length) {
+          const typed = newResults as Result[];
+          resultsRef.current = typed;
+          setResults(typed);
+        }
 
-      // Fetch task status
-      const { data: taskData } = await supabase
-        .from("tasks")
-        .select("status")
-        .eq("id", taskId)
-        .single();
+        // Fetch task status
+        const { data: taskData, error: taskErr } = await supabase
+          .from("tasks")
+          .select("status")
+          .eq("id", taskId)
+          .single();
 
-      if (taskData) {
-        setTaskStatus(taskData.status);
+        if (taskErr) {
+          console.error("Failed to fetch task status:", taskErr.message);
+        } else if (taskData) {
+          setTaskStatus(taskData.status);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
       }
     };
 
@@ -81,12 +93,16 @@ export default function Home() {
   const isDual = engine === "dual";
 
   // For single-engine mode, filter steps and results by the selected engine
-  const filteredSteps = isDual
-    ? steps
-    : steps.filter((s) => !s.engine || s.engine === engine);
-  const filteredResults = isDual
-    ? results
-    : results.filter((r) => !r.engine || r.engine === engine);
+  const filteredSteps = useMemo(
+    () =>
+      isDual ? steps : steps.filter((s) => !s.engine || s.engine === engine),
+    [isDual, steps, engine]
+  );
+  const filteredResults = useMemo(
+    () =>
+      isDual ? results : results.filter((r) => !r.engine || r.engine === engine),
+    [isDual, results, engine]
+  );
 
   return (
     <main

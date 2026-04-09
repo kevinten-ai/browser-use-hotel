@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 interface BootLine {
   text: string;
@@ -80,32 +80,29 @@ const LINE_COLORS: Record<string, string> = {
   normal: "#00ff41aa",
 };
 
-export default function BootAnimation({ platform }: { platform: string }) {
+function BootAnimationInner({ lines }: { lines: BootLine[] }) {
   const [visibleCount, setVisibleCount] = useState(0);
   const [dots, setDots] = useState("");
-  const seq = useRef(getBootSequence(platform));
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const timers = seq.current.map((_, i) =>
-      setTimeout(() => setVisibleCount(i + 1), seq.current[i].delay)
+    const timers = lines.map((_, i) =>
+      setTimeout(() => setVisibleCount(i + 1), lines[i].delay)
     );
     return () => timers.forEach(clearTimeout);
-  }, [platform]);
+  }, [lines]);
 
   useEffect(() => {
-    if (visibleCount < seq.current.length) return;
+    if (visibleCount < lines.length) return;
     const id = setInterval(() => {
       setDots((d) => (d.length >= 3 ? "" : d + "."));
     }, 500);
     return () => clearInterval(id);
-  }, [visibleCount]);
+  }, [visibleCount, lines.length]);
 
   useEffect(() => {
     containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight });
   }, [visibleCount]);
-
-  const lines = seq.current;
 
   return (
     <div className="relative w-full h-full bg-[#0a0c0a] overflow-hidden crt-on">
@@ -160,4 +157,11 @@ export default function BootAnimation({ platform }: { platform: string }) {
       </div>
     </div>
   );
+}
+
+export default function BootAnimation({ platform }: { platform: string }) {
+  const lines = useMemo(() => getBootSequence(platform), [platform]);
+  // Remount the inner component whenever platform changes to restart animation
+  // without calling setState directly inside an effect.
+  return <BootAnimationInner key={platform} lines={lines} />;
 }

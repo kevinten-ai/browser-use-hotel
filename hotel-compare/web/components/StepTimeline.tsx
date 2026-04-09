@@ -39,14 +39,13 @@ export default function StepTimeline({
         const isSelected = step.step_num === selectedStepNum;
         const positive = isPositiveEvaluation(step.evaluation);
 
-        let dotColor = "bg-gray-300";
-        if (isCurrent) {
-          dotColor = "bg-blue-500";
-        } else if (positive) {
-          dotColor = "bg-green-500";
-        } else if (step.evaluation) {
-          dotColor = "bg-gray-400";
-        }
+        const dotColor = isCurrent
+          ? "bg-blue-500"
+          : positive
+            ? "bg-green-500"
+            : step.evaluation
+              ? "bg-gray-400"
+              : "bg-gray-300";
 
         return (
           <button

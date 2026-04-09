@@ -9,12 +9,13 @@
   5. 错误处理：单平台失败不影响整体
 """
 
-import asyncio
 import argparse
+import asyncio
 import json
 import re
 import time
-from typing import Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -53,14 +54,23 @@ class HotelPrice(BaseModel):
 # 这是实现"执行过程可视化"的关键 API。
 # ========================================
 
-def make_step_callback(platform_name: str, log_list: list):
+def _get_goal_from_agent_output(agent_output: Any) -> str:
+    """兼容提取 next_goal，支持新旧 browser-use API 结构。"""
+    if agent_output is None:
+        return "N/A"
+    if hasattr(agent_output, "current_state") and agent_output.current_state:
+        return getattr(agent_output.current_state, "next_goal", "N/A") or "N/A"
+    return getattr(agent_output, "next_goal", "N/A") or "N/A"
+
+
+def make_step_callback(platform_name: str, log_list: list[dict[str, Any]]):
     """创建一个步骤回调函数，记录每步执行详情"""
     async def on_step(browser_state, agent_output, step_num):
         log_entry = {
             "platform": platform_name,
             "step": step_num,
             "url": browser_state.url if browser_state else "N/A",
-            "goal": agent_output.current_state.next_goal if agent_output and agent_output.current_state else "N/A",
+            "goal": _get_goal_from_agent_output(agent_output),
             "actions": [a.model_dump() for a in agent_output.action] if agent_output else [],
         }
         log_list.append(log_entry)
@@ -78,8 +88,9 @@ def make_streaming_callback(platform_name: str, task_id: str, browser_session=No
     platform_key = {"携程": "ctrip", "去哪儿": "qunar", "同程": "tongcheng"}.get(platform_name, platform_name)
 
     async def on_step(browser_state, agent_output, step_num):
-        goal = (agent_output.next_goal
-                if agent_output and agent_output.next_goal else "")
+        goal = _get_goal_from_agent_output(agent_output)
+        if goal == "N/A":
+            goal = ""
         screenshot_url = ""
         # Method 1: browser_state.screenshot (base64 from browser-use)
         screenshot_b64 = None
@@ -128,18 +139,36 @@ def _is_valid_price(price: float) -> bool:
     return 30 <= price <= 50000
 
 
-def parse_hotel_price(text: str, platform: str, fallback_url: str = "") -> Optional[HotelPrice]:
+def _extract_json_objects(text: str) -> list[dict[str, Any]]:
+    """从文本中提取所有 JSON 对象，使用标准库 JSONDecoder 保证嵌套结构正确解析。"""
+    decoder = json.JSONDecoder()
+    idx = 0
+    objects: list[dict[str, Any]] = []
+    while idx < len(text):
+        try:
+            start = text.find("{", idx)
+            if start == -1:
+                break
+            obj, end = decoder.raw_decode(text, start)
+            if isinstance(obj, dict):
+                objects.append(obj)
+            idx = end
+        except (json.JSONDecodeError, ValueError):
+            idx += 1
+    return objects
+
+
+def parse_hotel_price(text: str, platform: str, fallback_url: str = "") -> HotelPrice | None:
     """从 Agent 的自由文本输出中解析 HotelPrice。
     尝试提取 JSON，如果失败则用正则匹配关键字段。"""
     if not text:
         return None
-    # 尝试提取 JSON 块
-    json_match = re.search(r'\{[^{}]*"lowest_price"[^{}]*\}', text, re.DOTALL)
-    if not json_match:
-        json_match = re.search(r'\{[^{}]*"price"[^{}]*\}', text, re.DOTALL)
-    if json_match:
+
+    # 尝试提取包含 price / lowest_price 的 JSON 对象
+    for data in _extract_json_objects(text):
+        if "lowest_price" not in data and "price" not in data:
+            continue
         try:
-            data = json.loads(json_match.group())
             price = float(data.get("lowest_price", data.get("price", 0)))
             if not _is_valid_price(price):
                 print(f"  [{platform}] ⚠️ 解析到异常价格 ¥{price}，跳过")
@@ -151,12 +180,13 @@ def parse_hotel_price(text: str, platform: str, fallback_url: str = "") -> Optio
                 room_type=data.get("room_type", data.get("roomType", "")),
                 url=data.get("url", fallback_url),
             )
-        except (json.JSONDecodeError, ValueError):
-            pass
+        except (ValueError, TypeError):
+            continue
+
     # 降级：用正则提取价格（要求 ¥ 前缀，避免误提取年份等数字）
-    price_match = re.search(r'[¥￥]\s*(\d[\d,]*\.?\d*)', text)
+    price_match = re.search(r"[¥￥]\s*(\d[\d,]*\.?\d*)", text)
     if price_match:
-        price = float(price_match.group(1).replace(',', ''))
+        price = float(price_match.group(1).replace(",", ""))
         if _is_valid_price(price):
             return HotelPrice(
                 platform=platform,
@@ -178,19 +208,19 @@ def parse_hotel_price(text: str, platform: str, fallback_url: str = "") -> Optio
 # 不同网站需要不同的 prompt 策略，因为 UI 结构不同。
 # ========================================
 
-async def search_ctrip(hotel: str, checkin: str, checkout: str, logs: list, task_id=None) -> Optional[HotelPrice]:
+async def search_ctrip(hotel: str, checkin: str, checkout: str, logs: list[dict[str, Any]], task_id: str | None = None) -> HotelPrice | None:
     """在携程 (trip.com) 搜索酒店价格"""
     from agent_factory import run_platform_search
     return await run_platform_search(CTRIP_CONFIG, hotel, checkin, checkout, logs, task_id)
 
 
-async def search_qunar(hotel: str, checkin: str, checkout: str, logs: list, task_id=None) -> Optional[HotelPrice]:
+async def search_qunar(hotel: str, checkin: str, checkout: str, logs: list[dict[str, Any]], task_id: str | None = None) -> HotelPrice | None:
     """在去哪儿 (qunar.com) 搜索酒店价格"""
     from agent_factory import run_platform_search
     return await run_platform_search(QUNAR_CONFIG, hotel, checkin, checkout, logs, task_id)
 
 
-async def search_tongcheng(hotel: str, checkin: str, checkout: str, logs: list, task_id=None) -> Optional[HotelPrice]:
+async def search_tongcheng(hotel: str, checkin: str, checkout: str, logs: list[dict[str, Any]], task_id: str | None = None) -> HotelPrice | None:
     """在同程 (ly.com) 搜索酒店价格"""
     from agent_factory import run_platform_search
     return await run_platform_search(TONGCHENG_CONFIG, hotel, checkin, checkout, logs, task_id)
@@ -203,7 +233,7 @@ async def search_tongcheng(hotel: str, checkin: str, checkout: str, logs: list, 
 # 容错处理：某个平台失败不影响其他。
 # ========================================
 
-def compare_and_print(results: list[Optional[HotelPrice]]):
+def compare_and_print(results: list[HotelPrice | None]):
     """汇总三个平台的结果，格式化输出对比表"""
     valid = [r for r in results if r is not None]
 
@@ -241,10 +271,19 @@ def compare_and_print(results: list[Optional[HotelPrice]]):
 # 后续可以改为 asyncio.gather 并行执行。
 # ========================================
 
-async def run_comparison(hotel: str, checkin: str, checkout: str):
-    """运行完整的比价流程，返回结果和日志"""
-    logs = []
-    results = []
+async def run_comparison(hotel: str, checkin: str, checkout: str, parallel: bool = False):
+    """运行完整的比价流程，返回结果和日志。
+
+    Args:
+        hotel: 酒店名称
+        checkin: 入住日期 (YYYY-MM-DD)
+        checkout: 离店日期 (YYYY-MM-DD)
+        parallel: 是否并行搜索三个平台（默认顺序执行，日志更清晰）
+    """
+    import asyncio
+
+    logs: list[dict[str, Any]] = []
+    results: list[HotelPrice | None] = []
 
     print(f"\n🏨 开始比价: {hotel} | {checkin} → {checkout}")
     print("=" * 60)
@@ -255,16 +294,31 @@ async def run_comparison(hotel: str, checkin: str, checkout: str):
         ("同程", search_tongcheng),
     ]
 
-    for name, search_fn in platforms:
-        print(f"\n🔍 正在搜索 {name}...")
-        start = time.time()
-        result = await search_fn(hotel, checkin, checkout, logs)
-        elapsed = time.time() - start
-        if result:
-            print(f"  ✅ {name} 完成 ({elapsed:.1f}s) → ¥{result.lowest_price:.0f} {result.room_type}")
-        else:
-            print(f"  ❌ {name} 失败 ({elapsed:.1f}s)")
-        results.append(result)
+    if parallel:
+        print("\n⚡ 启用并行搜索模式")
+        coros = [search_fn(hotel, checkin, checkout, logs) for _, search_fn in platforms]
+        raw_results = await asyncio.gather(*coros, return_exceptions=True)
+        for (name, _), result in zip(platforms, raw_results):
+            if isinstance(result, Exception):
+                print(f"  ❌ {name} 异常: {result}")
+                results.append(None)
+            else:
+                if result:
+                    print(f"  ✅ {name} 完成 → ¥{result.lowest_price:.0f} {result.room_type}")
+                else:
+                    print(f"  ❌ {name} 失败")
+                results.append(result)
+    else:
+        for name, search_fn in platforms:
+            print(f"\n🔍 正在搜索 {name}...")
+            start = time.time()
+            result = await search_fn(hotel, checkin, checkout, logs)
+            elapsed = time.time() - start
+            if result:
+                print(f"  ✅ {name} 完成 ({elapsed:.1f}s) → ¥{result.lowest_price:.0f} {result.room_type}")
+            else:
+                print(f"  ❌ {name} 失败 ({elapsed:.1f}s)")
+            results.append(result)
 
     compare_and_print(results)
     return results, logs

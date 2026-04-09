@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { StepLog, Result } from "@/lib/types";
 import BootAnimation from "./BootAnimation";
 import StepTimeline from "./StepTimeline";
@@ -87,10 +88,12 @@ export default function PlatformCard({
         {isBooting ? (
           <BootAnimation platform={platform} />
         ) : latestStep?.screenshot_url ? (
-          <img
+          <Image
             src={latestStep.screenshot_url}
             alt={`${platform} Step ${latestStep.step_num}`}
-            className="w-full h-full object-cover object-top"
+            fill
+            className="object-cover object-top"
+            unoptimized
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">

@@ -8,7 +8,7 @@
     from platform_config import ALL_PLATFORMS, ROBUSTNESS_RULES
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

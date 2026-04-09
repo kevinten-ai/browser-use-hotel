@@ -1,0 +1,25 @@
+# Claude / IDE
+.claude/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Next.js build artifacts (if running from root)
+.next/
+out/
+dist/
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# Environment files
+.env
+.env.local

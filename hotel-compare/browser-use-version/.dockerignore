@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Environment & secrets
+.env
+*.key
+
+# Git
+.git/
+.gitignore
+
+# Docs & assets not needed at runtime
+docs/
+*.png
+*.md
+
+# IDE
+.idea/
+.vscode/

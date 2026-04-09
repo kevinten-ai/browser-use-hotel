@@ -7,13 +7,34 @@
   3. 理解 Agent 回调函数如何与 UI 联动
 """
 
-import streamlit as st
 import asyncio
 import time
 from datetime import date, timedelta
-from hotel_compare import (
-    search_ctrip, search_qunar, search_tongcheng, HotelPrice
-)
+from typing import Any
+
+import streamlit as st
+
+from hotel_compare import HotelPrice, search_ctrip, search_qunar, search_tongcheng
+
+
+def _run_async(coro):
+    """在 Streamlit 环境中安全运行异步协程。
+
+    Streamlit 的脚本执行器运行在工作线程，部分环境下已有 event loop，
+    直接使用 asyncio.run() 可能抛出 RuntimeError。此 helper 兼容两种场景。
+    """
+    try:
+        return asyncio.run(coro)
+    except RuntimeError as exc:
+        if "cannot be called from a running event loop" in str(exc):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(coro)
+            finally:
+                loop.close()
+        raise
+
 
 st.set_page_config(page_title="🏨 酒店跨平台比价", layout="wide")
 st.title("🏨 酒店跨平台比价工具")
@@ -43,10 +64,10 @@ if start_btn:
     st.divider()
 
     # ── 执行进度区域 ──
-    logs = []
-    results = []
+    logs: list[dict[str, Any]] = []
+    results: list[HotelPrice | None] = []
 
-    platforms = [
+    platforms: list[tuple[str, str, Any]] = [
         ("携程", "trip.com", search_ctrip),
         ("去哪儿", "qunar.com", search_qunar),
         ("同程", "ly.com", search_tongcheng),
@@ -56,8 +77,8 @@ if start_btn:
     status_cols = st.columns(3)
 
     # 为每个平台创建状态展示区
-    platform_containers = {}
-    for i, (name, domain, _) in enumerate(platforms):
+    platform_containers: dict[str, Any] = {}
+    for i, (name, _domain, _) in enumerate(platforms):
         with status_cols[i]:
             platform_containers[name] = st.container(border=True)
             platform_containers[name].markdown(f"### {name}\n⏳ 等待中")
@@ -66,7 +87,7 @@ if start_btn:
     log_expander = st.expander("📋 Agent 执行日志", expanded=True)
 
     # ── 顺序执行搜索 ──
-    for idx, (name, domain, search_fn) in enumerate(platforms):
+    for idx, (name, _domain, search_fn) in enumerate(platforms):
         progress.progress(
             idx / len(platforms),
             text=f"正在搜索 {name}..."
@@ -74,7 +95,7 @@ if start_btn:
         platform_containers[name].markdown(f"### {name}\n🔄 正在搜索...")
 
         start_time = time.time()
-        result = asyncio.run(search_fn(hotel, checkin_str, checkout_str, logs))
+        result = _run_async(search_fn(hotel, checkin_str, checkout_str, logs))
         elapsed = time.time() - start_time
 
         results.append(result)
@@ -93,7 +114,7 @@ if start_btn:
             )
 
         # 更新日志
-        platform_logs = [l for l in logs if l["platform"] == name]
+        platform_logs = [entry for entry in logs if entry["platform"] == name]
         with log_expander:
             for log in platform_logs:
                 st.text(f"[{log['platform']}] Step {log['step']}: {log['goal']}")

@@ -21,7 +21,7 @@ export interface StepLog {
   plan: PlanItem[] | null;
   url: string | null;
   created_at: string;
-  engine: 'browser-use' | 'page-agent';
+  engine?: 'browser-use' | 'page-agent' | null;
 }
 
 export interface ActionData {
@@ -41,7 +41,7 @@ export interface Result {
   room_type: string | null;
   page_url: string | null;
   error: string | null;
-  engine: 'browser-use' | 'page-agent';
+  engine?: 'browser-use' | 'page-agent' | null;
   duration_seconds: number | null;
   strategy_name: string | null;
   attempt_number: number | null;

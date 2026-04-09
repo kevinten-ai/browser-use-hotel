@@ -20,12 +20,15 @@ import asyncio
 import argparse
 import os
 import time
+from typing import Any
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from browser_use import Agent, BrowserSession
-from browser_use.llm.openai.chat import ChatOpenAI
+
+from agent_factory import create_default_llm
 
 
 # 最简化测试 prompt — 不使用 platform_config 模板，直接硬编码
@@ -95,24 +98,20 @@ TEST_PROMPTS = {
 }
 
 
-async def test_single_platform(platform_key, hotel, checkin, checkout):
+async def test_single_platform(platform_key: str, hotel: str, checkin: str, checkout: str) -> list[dict[str, Any]]:
     """测试单个平台的 Agent 搜索能力"""
 
     model = os.getenv("OPENAI_MODEL", "glm-4-plus")
     base_url = os.getenv("OPENAI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"测试平台: {platform_key}")
     print(f"酒店: {hotel}")
     print(f"日期: {checkin} → {checkout}")
     print(f"模型: {model}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
-    llm = ChatOpenAI(
-        model=model,
-        base_url=base_url,
-        dont_force_structured_output=True,
-    )
+    llm = create_default_llm(model=model, base_url=base_url)
 
     prompt = TEST_PROMPTS[platform_key].format(
         hotel=hotel, checkin=checkin, checkout=checkout,
@@ -126,11 +125,9 @@ async def test_single_platform(platform_key, hotel, checkin, checkout):
     )
 
     # 记录每一步
-    steps_log = []
-    validation_errors = 0
+    steps_log: list[dict[str, Any]] = []
 
     async def on_step(browser_state, agent_output, step_num):
-        nonlocal validation_errors
         goal = ""
         if agent_output:
             goal = agent_output.next_goal or ""
@@ -153,7 +150,7 @@ async def test_single_platform(platform_key, hotel, checkin, checkout):
         result = await agent.run(max_steps=15)
         elapsed = time.time() - start
 
-        print(f"\n{'─'*60}")
+        print(f"\n{'─' * 60}")
         print(f"完成! 用时: {elapsed:.1f}s, 步数: {len(steps_log)}")
 
         if result:
@@ -176,7 +173,7 @@ async def test_single_platform(platform_key, hotel, checkin, checkout):
     return steps_log
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="本地 Agent 测试")
     parser.add_argument("--hotel", default="北京国贸大酒店", help="酒店名称")
     parser.add_argument("--checkin", default="2026-04-15", help="入住日期")

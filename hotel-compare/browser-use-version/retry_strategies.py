@@ -1,11 +1,13 @@
 """多策略重试编排器 — 每个平台支持多种搜索策略，失败自动切换"""
 
-from typing import Optional
+from typing import Any
+
 from platform_config import PlatformConfig
+from hotel_compare import HotelPrice
 from reflection import analyze_failure, is_plausible_result
 
 
-RETRY_STRATEGIES = {
+RETRY_STRATEGIES: dict[str, list[dict[str, Any]]] = {
     "携程": [
         {"name": "desktop", "url": "https://hotels.ctrip.com/", "max_steps": 25},
         {"name": "mobile", "url": "https://m.ctrip.com/hotel/", "max_steps": 20},
@@ -22,15 +24,23 @@ RETRY_STRATEGIES = {
 }
 
 
+def _attach_strategy_meta(result: HotelPrice, name: str, attempt: int) -> HotelPrice:
+    """将重试策略元数据挂载到结果对象上（供 Worker 写入数据库）。"""
+    # type: ignore[attr-defined]
+    result._strategy_name = name  # noqa: SLF001
+    result._attempt_number = attempt  # noqa: SLF001
+    return result
+
+
 async def search_with_retry(
     config: PlatformConfig,
     hotel: str,
     checkin: str,
     checkout: str,
-    logs: list,
-    task_id: str = None,
+    logs: list[dict[str, Any]],
+    task_id: str | None = None,
     extra_context: str = "",
-) -> Optional:
+) -> HotelPrice | None:
     """尝试多种策略搜索平台，返回第一个有效结果。
 
     Args:
@@ -47,6 +57,7 @@ async def search_with_retry(
     """
     from agent_factory import run_platform_search
     from context_store import retrieve_relevant_context
+    from supabase_client import insert_step_log
 
     # 获取历史成功操作上下文
     if not extra_context:
@@ -70,8 +81,7 @@ async def search_with_retry(
         )
 
         if result and is_plausible_result(result, hotel):
-            result._strategy_name = strategy["name"]
-            result._attempt_number = attempt + 1
+            _attach_strategy_meta(result, strategy["name"], attempt + 1)
             print(f"  [{config.name}] 策略 '{strategy['name']}' 成功")
             return result
 
@@ -81,7 +91,6 @@ async def search_with_retry(
 
         # 记录策略切换到 step_logs
         if task_id:
-            from supabase_client import insert_step_log
             insert_step_log(
                 task_id, config.name, 900 + attempt,
                 f"策略 '{strategy['name']}' 失败 ({failure_mode})，尝试下一个策略...", "",

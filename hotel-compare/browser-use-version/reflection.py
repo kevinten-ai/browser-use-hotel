@@ -1,9 +1,11 @@
 """反思模块 — 失败分析与结果验证"""
 
-from typing import Optional
+from typing import Any
+
+from hotel_compare import HotelPrice
 
 
-def analyze_failure(logs: list, platform_name: str) -> str:
+def analyze_failure(logs: list[dict[str, Any]], platform_name: str) -> str:
     """分析步骤日志，判断失败模式。
 
     Args:
@@ -13,11 +15,11 @@ def analyze_failure(logs: list, platform_name: str) -> str:
     Returns:
         失败模式字符串: login_wall, captcha, navigation_stuck, no_logs, unknown
     """
-    platform_logs = [l for l in logs if l.get("platform") == platform_name]
+    platform_logs = [entry for entry in logs if entry.get("platform") == platform_name]
     if not platform_logs:
         return "no_logs"
 
-    last_goals = [l.get("goal", "") for l in platform_logs[-3:]]
+    last_goals = [entry.get("goal", "") for entry in platform_logs[-3:]]
     goals_text = " ".join(last_goals).lower()
 
     if any(w in goals_text for w in ["验证码", "滑块", "captcha", "verify"]):
@@ -29,7 +31,7 @@ def analyze_failure(logs: list, platform_name: str) -> str:
     return "unknown"
 
 
-def is_plausible_result(result, hotel: str) -> bool:
+def is_plausible_result(result: HotelPrice, hotel: str) -> bool:
     """检查搜索结果是否合理。
 
     Args:

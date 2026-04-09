@@ -2,7 +2,8 @@
 
 import os
 import time
-from typing import Optional
+from typing import Any
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,23 +15,29 @@ from hotel_compare import HotelPrice, parse_hotel_price, make_step_callback, mak
 from context_store import store_operation_context
 
 
+# Re-export for consumers that want a centralized LLM factory
+def create_default_llm(model: str | None = None, base_url: str | None = None) -> ChatOpenAI:
+    """Create a ChatOpenAI instance with project defaults."""
+    return ChatOpenAI(
+        model=model or os.getenv("OPENAI_MODEL", "kimi-k2.5"),
+        base_url=base_url or os.getenv("OPENAI_BASE_URL", "https://api.moonshot.ai/v1"),
+        dont_force_structured_output=True,
+    )
+
+
 async def run_platform_search(
     config: PlatformConfig,
     hotel: str,
     checkin: str,
     checkout: str,
-    logs: list,
-    task_id: str = None,
-    strategy_override: dict = None,
+    logs: list[dict[str, Any]],
+    task_id: str | None = None,
+    strategy_override: dict[str, Any] | None = None,
     extra_context: str = "",
-) -> Optional[HotelPrice]:
+) -> HotelPrice | None:
     """Run a single platform search with full robustness features."""
 
-    llm = ChatOpenAI(
-        model=os.getenv("OPENAI_MODEL", "kimi-k2.5"),
-        base_url=os.getenv("OPENAI_BASE_URL", "https://api.moonshot.ai/v1"),
-        dont_force_structured_output=True,
-    )
+    llm = create_default_llm()
 
     # Build task prompt from template — robustness rules go INTO the prompt
     # (not extend_system_message, which interferes with browser-use's internal prompts)
@@ -57,14 +64,19 @@ async def run_platform_search(
         _supabase_cb = make_streaming_callback(config.name, task_id, browser)
         async def callback(browser_state, agent_output, step_num):
             await _supabase_cb(browser_state, agent_output, step_num)
-            goal = (agent_output.next_goal if agent_output else "") or ""
+            if agent_output is None:
+                goal = ""
+            elif hasattr(agent_output, "current_state") and agent_output.current_state:
+                goal = getattr(agent_output.current_state, "next_goal", "") or ""
+            else:
+                goal = getattr(agent_output, "next_goal", "") or ""
             logs.append({"platform": config.name, "step": step_num, "goal": goal})
     else:
         callback = make_step_callback(config.name, logs)
 
     # Track result for done_callback
     start_time = time.time()
-    result_holder = {}
+    result_holder: dict[str, Any] = {}
     strategy_name = (strategy_override or {}).get("name")
 
     async def on_done(history_list):

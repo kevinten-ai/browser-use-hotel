@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { StepLog, Result } from "@/lib/types";
 import PlatformCard from "@/components/PlatformCard";
 
@@ -26,8 +27,14 @@ function EngineColumn({
   results,
   isRunning,
 }: EngineColumnProps) {
-  const engineSteps = steps.filter((s) => s.engine === engineKey);
-  const engineResults = results.filter((r) => r.engine === engineKey);
+  const engineSteps = useMemo(
+    () => steps.filter((s) => s.engine === engineKey),
+    [steps, engineKey]
+  );
+  const engineResults = useMemo(
+    () => results.filter((r) => r.engine === engineKey),
+    [results, engineKey]
+  );
   const hasAnyActivity = engineSteps.length > 0 || engineResults.length > 0;
 
   return (

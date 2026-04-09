@@ -96,11 +96,12 @@ export default function SearchForm({ onTaskCreated, disabled }: Props) {
         {engineOptions.map((opt) => (
           <label
             key={opt.value}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors border ${
+            aria-disabled={isDisabled}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors border ${
               engine === opt.value
                 ? "bg-blue-50 border-blue-300 text-blue-700"
                 : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-            } ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <input
               type="radio"
