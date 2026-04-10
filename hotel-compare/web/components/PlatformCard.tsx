@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { StepLog, Result } from "@/lib/types";
 import BootAnimation from "./BootAnimation";
@@ -26,20 +26,40 @@ export default function PlatformCard({
   const [showDetail, setShowDetail] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
 
-  const latestStep = steps[steps.length - 1];
-  const isSearching = steps.length > 0 && !result;
+  const latestStep = useMemo(() => steps[steps.length - 1], [steps]);
+  const isSearching = useMemo(
+    () => steps.length > 0 && !result,
+    [steps.length, result]
+  );
   const hasError = result?.error;
   const isBooting = !steps.length && !result && isRunning;
 
   // Resolve the selected step (default to latest)
   const effectiveStepNum = selectedStepNum ?? latestStep?.step_num ?? null;
-  const selectedStep = effectiveStepNum
-    ? steps.find((s) => s.step_num === effectiveStepNum) ?? latestStep
-    : latestStep;
+  const selectedStep = useMemo(() => {
+    if (effectiveStepNum) {
+      return steps.find((s) => s.step_num === effectiveStepNum) ?? latestStep;
+    }
+    return latestStep;
+  }, [effectiveStepNum, steps, latestStep]);
 
-  const progressPercent = latestStep
-    ? Math.min(Math.round((latestStep.step_num / MAX_STEPS) * 100), 100)
-    : 0;
+  const progressPercent = useMemo(
+    () =>
+      latestStep
+        ? Math.min(Math.round((latestStep.step_num / MAX_STEPS) * 100), 100)
+        : 0,
+    [latestStep]
+  );
+
+  const toggleThinking = useCallback(
+    () => setShowThinking((v) => !v),
+    []
+  );
+  const toggleDetail = useCallback(() => setShowDetail((v) => !v), []);
+  const handleStepSelect = useCallback(
+    (num: number) => setSelectedStepNum(num),
+    []
+  );
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
@@ -118,7 +138,7 @@ export default function PlatformCard({
         {/* Thinking toggle button */}
         {selectedStep?.thinking && (
           <button
-            onClick={() => setShowThinking((v) => !v)}
+            onClick={toggleThinking}
             className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
               showThinking
                 ? "bg-white text-gray-800 shadow"
@@ -136,7 +156,7 @@ export default function PlatformCard({
         <StepTimeline
           steps={steps}
           selectedStepNum={effectiveStepNum}
-          onStepSelect={(num) => setSelectedStepNum(num)}
+          onStepSelect={handleStepSelect}
           isSearching={isSearching}
         />
       )}
@@ -145,7 +165,7 @@ export default function PlatformCard({
       {steps.length > 0 && (
         <div className="px-3 pb-2">
           <button
-            onClick={() => setShowDetail((v) => !v)}
+            onClick={toggleDetail}
             className="text-xs text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
           >
             <span

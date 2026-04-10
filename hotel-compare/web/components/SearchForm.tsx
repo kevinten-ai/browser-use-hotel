@@ -10,6 +10,12 @@ interface Props {
   disabled?: boolean;
 }
 
+const engineOptions: { value: EngineOption; label: string }[] = [
+  { value: "browser-use", label: "Browser-Use" },
+  { value: "page-agent", label: "Page-Agent" },
+  { value: "dual", label: "Both (对比模式)" },
+];
+
 export default function SearchForm({ onTaskCreated, disabled }: Props) {
   const [hotel, setHotel] = useState("北京国贸大酒店");
   const [checkin, setCheckin] = useState("2026-04-15");
@@ -31,12 +37,6 @@ export default function SearchForm({ onTaskCreated, disabled }: Props) {
   }
 
   const isDisabled = disabled || loading;
-
-  const engineOptions: { value: EngineOption; label: string }[] = [
-    { value: "browser-use", label: "Browser-Use" },
-    { value: "page-agent", label: "Page-Agent" },
-    { value: "dual", label: "Both (对比模式)" },
-  ];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Result } from "@/lib/types";
 
 const PLATFORMS = ["携程", "去哪儿", "同程"];
@@ -29,60 +30,80 @@ function formatPrice(price: number | null): string {
 }
 
 export default function EngineComparisonTable({ results }: Props) {
-  const buResults = results.filter((r) => r.engine === "browser-use");
-  const paResults = results.filter((r) => r.engine === "page-agent");
+  const buResults = useMemo(
+    () => results.filter((r) => r.engine === "browser-use"),
+    [results]
+  );
+  const paResults = useMemo(
+    () => results.filter((r) => r.engine === "page-agent"),
+    [results]
+  );
 
   // Need at least one result from each engine to show comparison
   if (buResults.length === 0 && paResults.length === 0) return null;
 
-  const comparisons: PlatformComparison[] = PLATFORMS.map((platform) => {
-    const buResult = buResults.find((r) => r.platform === platform);
-    const paResult = paResults.find((r) => r.platform === platform);
+  const comparisons: PlatformComparison[] = useMemo(() => {
+    return PLATFORMS.map((platform) => {
+      const buResult = buResults.find((r) => r.platform === platform);
+      const paResult = paResults.find((r) => r.platform === platform);
 
-    let winner: PlatformComparison["winner"] = "none";
-    const buPrice = buResult?.lowest_price;
-    const paPrice = paResult?.lowest_price;
+      let winner: PlatformComparison["winner"] = "none";
+      const buPrice = buResult?.lowest_price;
+      const paPrice = paResult?.lowest_price;
 
-    if (buPrice != null && paPrice != null) {
-      if (buPrice < paPrice) winner = "browser-use";
-      else if (paPrice < buPrice) winner = "page-agent";
-      else winner = "tie";
-    } else if (buPrice != null && (paResult == null || paResult.error)) {
-      winner = "browser-use";
-    } else if (paPrice != null && (buResult == null || buResult.error)) {
-      winner = "page-agent";
-    }
+      if (buPrice != null && paPrice != null) {
+        if (buPrice < paPrice) winner = "browser-use";
+        else if (paPrice < buPrice) winner = "page-agent";
+        else winner = "tie";
+      } else if (buPrice != null && (paResult == null || paResult.error)) {
+        winner = "browser-use";
+      } else if (paPrice != null && (buResult == null || buResult.error)) {
+        winner = "page-agent";
+      }
 
-    return { platform, buResult, paResult, winner };
-  });
+      return { platform, buResult, paResult, winner };
+    });
+  }, [buResults, paResults]);
 
   // Summary stats
-  const buWins = comparisons.filter((c) => c.winner === "browser-use").length;
-  const paWins = comparisons.filter((c) => c.winner === "page-agent").length;
-  const ties = comparisons.filter((c) => c.winner === "tie").length;
+  const { buWins, paWins, ties, buAvgSpeed, paAvgSpeed, overallWinner } =
+    useMemo(() => {
+      const buWins = comparisons.filter((c) => c.winner === "browser-use").length;
+      const paWins = comparisons.filter((c) => c.winner === "page-agent").length;
+      const ties = comparisons.filter((c) => c.winner === "tie").length;
 
-  const buDurations = buResults
-    .map((r) => r.duration_seconds)
-    .filter((d): d is number => d != null);
-  const paDurations = paResults
-    .map((r) => r.duration_seconds)
-    .filter((d): d is number => d != null);
+      const buDurations = buResults
+        .map((r) => r.duration_seconds)
+        .filter((d): d is number => d != null);
+      const paDurations = paResults
+        .map((r) => r.duration_seconds)
+        .filter((d): d is number => d != null);
 
-  const buAvgSpeed =
-    buDurations.length > 0
-      ? buDurations.reduce((a, b) => a + b, 0) / buDurations.length
-      : null;
-  const paAvgSpeed =
-    paDurations.length > 0
-      ? paDurations.reduce((a, b) => a + b, 0) / paDurations.length
-      : null;
+      const buAvgSpeed =
+        buDurations.length > 0
+          ? buDurations.reduce((a, b) => a + b, 0) / buDurations.length
+          : null;
+      const paAvgSpeed =
+        paDurations.length > 0
+          ? paDurations.reduce((a, b) => a + b, 0) / paDurations.length
+          : null;
 
-  const overallWinner =
-    buWins > paWins
-      ? "Browser-Use"
-      : paWins > buWins
-        ? "Page-Agent"
-        : "平手";
+      const overallWinner =
+        buWins > paWins
+          ? "Browser-Use"
+          : paWins > buWins
+            ? "Page-Agent"
+            : "平手";
+
+      return {
+        buWins,
+        paWins,
+        ties,
+        buAvgSpeed,
+        paAvgSpeed,
+        overallWinner,
+      };
+    }, [comparisons, buResults, paResults]);
 
   return (
     <div className="mt-8">

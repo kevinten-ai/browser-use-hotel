@@ -85,6 +85,14 @@ function BootAnimationInner({ lines }: { lines: BootLine[] }) {
   const [dots, setDots] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const lastProgressIndex = useMemo(() => {
+    let idx = -1;
+    lines.forEach((l, i) => {
+      if (l.type === "progress") idx = i;
+    });
+    return idx;
+  }, [lines]);
+
   useEffect(() => {
     const timers = lines.map((_, i) =>
       setTimeout(() => setVisibleCount(i + 1), lines[i].delay)
@@ -129,11 +137,8 @@ function BootAnimationInner({ lines }: { lines: BootLine[] }) {
         style={{ textShadow: "0 0 6px rgba(0,255,65,0.35)" }}
       >
         {lines.slice(0, visibleCount).map((line, i) => {
-          if (line.type === "progress") {
-            const hasLater = lines.some(
-              (l, j) => j > i && j < visibleCount && l.type === "progress"
-            );
-            if (hasLater) return null;
+          if (line.type === "progress" && i !== lastProgressIndex) {
+            return null;
           }
           return (
             <div

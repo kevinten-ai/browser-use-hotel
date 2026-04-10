@@ -104,6 +104,16 @@ export default function Home() {
     [isDual, results, engine]
   );
 
+  const platformCardsData = useMemo(
+    () =>
+      PLATFORMS.map((p) => ({
+        platform: p,
+        steps: filteredSteps.filter((s) => s.platform === p),
+        result: filteredResults.find((r) => r.platform === p),
+      })),
+    [filteredSteps, filteredResults]
+  );
+
   return (
     <main
       className={`${isDual ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 py-8`}
@@ -129,12 +139,12 @@ export default function Home() {
           ) : (
             /* Single engine: original 3-column grid */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-              {PLATFORMS.map((p) => (
+              {platformCardsData.map(({ platform, steps, result }) => (
                 <PlatformCard
-                  key={p}
-                  platform={p}
-                  steps={filteredSteps.filter((s) => s.platform === p)}
-                  result={filteredResults.find((r) => r.platform === p)}
+                  key={platform}
+                  platform={platform}
+                  steps={steps}
+                  result={result}
                   isRunning={isRunning}
                 />
               ))}

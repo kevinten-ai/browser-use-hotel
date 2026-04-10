@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Result } from "@/lib/types";
 
 interface Props {
@@ -5,9 +6,13 @@ interface Props {
 }
 
 export default function ComparisonTable({ results }: Props) {
-  const valid = results
-    .filter((r) => r.lowest_price != null)
-    .sort((a, b) => a.lowest_price! - b.lowest_price!);
+  const valid = useMemo(
+    () =>
+      results
+        .filter((r): r is Result & { lowest_price: number } => r.lowest_price != null)
+        .sort((a, b) => a.lowest_price - b.lowest_price),
+    [results]
+  );
 
   if (valid.length === 0) return null;
 
@@ -61,7 +66,7 @@ export default function ComparisonTable({ results }: Props) {
       {valid.length >= 2 && (
         <p className="mt-3 text-green-700 font-medium">
           最低价: {cheapest.platform} ¥{cheapest.lowest_price} (比最高价低 ¥
-          {valid[valid.length - 1].lowest_price! - cheapest.lowest_price!})
+          {valid[valid.length - 1].lowest_price - cheapest.lowest_price})
         </p>
       )}
     </div>
