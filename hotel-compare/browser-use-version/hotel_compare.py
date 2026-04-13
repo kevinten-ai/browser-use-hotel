@@ -11,8 +11,10 @@
 
 import argparse
 import asyncio
+import base64
 import json
 import re
+import sys
 import time
 from typing import Any
 
@@ -24,6 +26,7 @@ load_dotenv()
 # Platform configs are now in platform_config.py; Agent creation is in agent_factory.py.
 # Lazy-import run_platform_search to avoid circular import at module load time.
 from platform_config import CTRIP_CONFIG, QUNAR_CONFIG, TONGCHENG_CONFIG
+from supabase_client import upload_screenshot, insert_step_log
 
 
 # ========================================
@@ -78,12 +81,27 @@ def make_step_callback(platform_name: str, log_list: list[dict[str, Any]]):
     return on_step
 
 
-def make_streaming_callback(platform_name: str, task_id: str, browser_session=None):
-    """创建步骤回调：截图上传 Supabase + 写入 step_logs"""
-    import sys
-    import base64
-    from supabase_client import upload_screenshot, insert_step_log
+async def _take_screenshot_b64(browser_state, browser_session, platform_name: str, step_num: int) -> str | None:
+    """尝试从 browser_state 或 browser_session 获取 base64 截图。"""
+    if browser_state and browser_state.screenshot:
+        print(f"  [{platform_name}] Step {step_num}: got screenshot from browser_state "
+              f"({len(browser_state.screenshot)} chars)", flush=True)
+        return browser_state.screenshot
+    if browser_session:
+        try:
+            screenshot_bytes = await browser_session.take_screenshot()
+            if screenshot_bytes:
+                b64 = base64.b64encode(screenshot_bytes).decode()
+                print(f"  [{platform_name}] Step {step_num}: got screenshot from take_screenshot "
+                      f"({len(b64)} chars)", flush=True)
+                return b64
+        except Exception as exc:
+            print(f"  [{platform_name}] Step {step_num}: take_screenshot failed: {exc}", flush=True)
+    return None
 
+
+def make_streaming_callback(platform_name: str, task_id: str, browser_session=None, engine: str | None = None):
+    """创建步骤回调：截图上传 Supabase + 写入 step_logs"""
     # Use ASCII-safe platform name for storage paths
     platform_key = {"携程": "ctrip", "去哪儿": "qunar", "同程": "tongcheng"}.get(platform_name, platform_name)
 
@@ -92,29 +110,16 @@ def make_streaming_callback(platform_name: str, task_id: str, browser_session=No
         if goal == "N/A":
             goal = ""
         screenshot_url = ""
-        # Method 1: browser_state.screenshot (base64 from browser-use)
-        screenshot_b64 = None
-        if browser_state and browser_state.screenshot:
-            screenshot_b64 = browser_state.screenshot
-            print(f"  [{platform_name}] Step {step_num}: got screenshot from browser_state ({len(screenshot_b64)} chars)", flush=True)
-        # Method 2: manual capture via BrowserSession.take_screenshot()
-        if not screenshot_b64 and browser_session:
-            try:
-                screenshot_bytes = await browser_session.take_screenshot()
-                if screenshot_bytes:
-                    screenshot_b64 = base64.b64encode(screenshot_bytes).decode()
-                    print(f"  [{platform_name}] Step {step_num}: got screenshot from take_screenshot ({len(screenshot_b64)} chars)", flush=True)
-            except Exception as e:
-                print(f"  [{platform_name}] Step {step_num}: take_screenshot failed: {e}", flush=True)
-        # Upload if we got a screenshot
+
+        screenshot_b64 = await _take_screenshot_b64(browser_state, browser_session, platform_name, step_num)
         if screenshot_b64:
             try:
                 screenshot_url = upload_screenshot(
                     task_id, platform_key, step_num, screenshot_b64
                 )
                 print(f"  [{platform_name}] Step {step_num}: uploaded -> {screenshot_url[:80]}", flush=True)
-            except Exception as e:
-                print(f"  [{platform_name}] Step {step_num}: upload failed: {e}", flush=True)
+            except Exception as exc:
+                print(f"  [{platform_name}] Step {step_num}: upload failed: {exc}", flush=True)
         else:
             print(f"  [{platform_name}] Step {step_num}: no screenshot available", flush=True)
 
@@ -128,7 +133,7 @@ def make_streaming_callback(platform_name: str, task_id: str, browser_session=No
 
         insert_step_log(task_id, platform_name, step_num, goal, screenshot_url,
                         thinking=thinking, evaluation=evaluation, memory=memory,
-                        actions=actions_data, url=page_url)
+                        actions=actions_data, url=page_url, engine=engine)
         sys.stdout.flush()
 
     return on_step
@@ -280,8 +285,6 @@ async def run_comparison(hotel: str, checkin: str, checkout: str, parallel: bool
         checkout: 离店日期 (YYYY-MM-DD)
         parallel: 是否并行搜索三个平台（默认顺序执行，日志更清晰）
     """
-    import asyncio
-
     logs: list[dict[str, Any]] = []
     results: list[HotelPrice | None] = []
 

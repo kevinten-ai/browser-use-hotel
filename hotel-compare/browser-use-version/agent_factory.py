@@ -11,17 +11,40 @@ load_dotenv()
 from browser_use import Agent, BrowserSession
 from browser_use.llm.openai.chat import ChatOpenAI
 from platform_config import PlatformConfig, ROBUSTNESS_RULES
-from hotel_compare import HotelPrice, parse_hotel_price, make_step_callback, make_streaming_callback
+from hotel_compare import (
+    HotelPrice,
+    _get_goal_from_agent_output,
+    parse_hotel_price,
+    make_step_callback,
+    make_streaming_callback,
+)
 from context_store import store_operation_context
+
+
+class LLMConfigError(RuntimeError):
+    """LLM 配置缺失或无效。"""
 
 
 # Re-export for consumers that want a centralized LLM factory
 def create_default_llm(model: str | None = None, base_url: str | None = None) -> ChatOpenAI:
     """Create a ChatOpenAI instance with project defaults."""
+    resolved_model = model or os.getenv("OPENAI_MODEL")
+    resolved_base_url = base_url or os.getenv("OPENAI_BASE_URL")
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not resolved_model:
+        raise LLMConfigError("Missing OPENAI_MODEL environment variable")
+    if not resolved_base_url:
+        raise LLMConfigError("Missing OPENAI_BASE_URL environment variable")
+    if not api_key:
+        raise LLMConfigError("Missing OPENAI_API_KEY environment variable")
+
     return ChatOpenAI(
-        model=model or os.getenv("OPENAI_MODEL", "kimi-k2.5"),
-        base_url=base_url or os.getenv("OPENAI_BASE_URL", "https://api.moonshot.ai/v1"),
+        model=resolved_model,
+        base_url=resolved_base_url,
+        api_key=api_key,
         dont_force_structured_output=True,
+        temperature=0.2,
     )
 
 
@@ -61,15 +84,11 @@ async def run_platform_search(
     )
 
     if task_id:
-        _supabase_cb = make_streaming_callback(config.name, task_id, browser)
+        _supabase_cb = make_streaming_callback(config.name, task_id, browser, engine="browser-use")
+
         async def callback(browser_state, agent_output, step_num):
             await _supabase_cb(browser_state, agent_output, step_num)
-            if agent_output is None:
-                goal = ""
-            elif hasattr(agent_output, "current_state") and agent_output.current_state:
-                goal = getattr(agent_output.current_state, "next_goal", "") or ""
-            else:
-                goal = getattr(agent_output, "next_goal", "") or ""
+            goal = _get_goal_from_agent_output(agent_output)
             logs.append({"platform": config.name, "step": step_num, "goal": goal})
     else:
         callback = make_step_callback(config.name, logs)
@@ -105,15 +124,18 @@ async def run_platform_search(
 
     try:
         result = await agent.run(max_steps=max_steps)
-        result_text = result.final_result() if result else None
-        url_final = result.urls()[-1] if result and result.urls() else ""
-        if result_text:
-            parsed = parse_hotel_price(result_text, config.name, url_final)
-            result_holder["result"] = parsed
-            return parsed
-    except Exception as e:
-        print(f"  [{config.name}] ❌ 搜索失败: {e}")
-    finally:
+    except Exception as exc:
+        print(f"  [{config.name}] ❌ Agent run failed: {exc}")
         await browser.stop()
+        return None
 
+    result_text = result.final_result() if result else None
+    url_final = result.urls()[-1] if result and result.urls() else ""
+    if result_text:
+        parsed = parse_hotel_price(result_text, config.name, url_final)
+        result_holder["result"] = parsed
+        await browser.stop()
+        return parsed
+
+    await browser.stop()
     return None

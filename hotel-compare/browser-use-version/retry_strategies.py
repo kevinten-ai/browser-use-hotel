@@ -1,13 +1,13 @@
 """多策略重试编排器 — 每个平台支持多种搜索策略，失败自动切换"""
 
-from typing import Any
+from typing import Any, Final
 
 from platform_config import PlatformConfig
 from hotel_compare import HotelPrice
 from reflection import analyze_failure, is_plausible_result
 
 
-RETRY_STRATEGIES: dict[str, list[dict[str, Any]]] = {
+RETRY_STRATEGIES: Final[dict[str, list[dict[str, Any]]]] = {
     "携程": [
         {"name": "desktop", "url": "https://hotels.ctrip.com/", "max_steps": 25},
         {"name": "mobile", "url": "https://m.ctrip.com/hotel/", "max_steps": 20},
@@ -94,6 +94,7 @@ async def search_with_retry(
             insert_step_log(
                 task_id, config.name, 900 + attempt,
                 f"策略 '{strategy['name']}' 失败 ({failure_mode})，尝试下一个策略...", "",
+                engine="browser-use",
             )
 
         # 验证码无法通过重试解决

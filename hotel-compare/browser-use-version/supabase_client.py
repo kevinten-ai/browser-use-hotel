@@ -4,12 +4,12 @@ import os
 import base64
 from typing import Any
 
-from supabase import create_client
+from supabase import Client, create_client
 
-_client = None
+_client: Client | None = None
 
 
-def get_client():
+def get_client() -> Client:
     global _client
     if _client is None:
         url = os.getenv("SUPABASE_URL")
@@ -23,32 +23,47 @@ def get_client():
     return _client
 
 
+class SupabaseError(RuntimeError):
+    """Supabase 操作失败的统一异常。"""
+
+
 def create_task(hotel: str, checkin: str, checkout: str) -> str:
     """创建搜索任务，返回 task_id"""
-    resp = get_client().table("tasks").insert({
-        "hotel": hotel,
-        "checkin": checkin,
-        "checkout": checkout,
-        "status": "pending",
-    }).execute()
+    try:
+        resp = get_client().table("tasks").insert({
+            "hotel": hotel,
+            "checkin": checkin,
+            "checkout": checkout,
+            "status": "pending",
+        }).execute()
+    except Exception as exc:
+        raise SupabaseError(f"Failed to create task: {exc}") from exc
+    if not resp.data:
+        raise SupabaseError("Task creation returned empty data")
     return resp.data[0]["id"]
 
 
 def update_task_status(task_id: str, status: str) -> None:
-    get_client().table("tasks").update({"status": status}).eq("id", task_id).execute()
+    try:
+        get_client().table("tasks").update({"status": status}).eq("id", task_id).execute()
+    except Exception as exc:
+        raise SupabaseError(f"Failed to update task {task_id} status: {exc}") from exc
 
 
 def fetch_pending_task() -> dict[str, Any] | None:
     """获取一个 pending 任务并标记为 running"""
-    resp = (
-        get_client()
-        .table("tasks")
-        .select("*")
-        .eq("status", "pending")
-        .order("created_at")
-        .limit(1)
-        .execute()
-    )
+    try:
+        resp = (
+            get_client()
+            .table("tasks")
+            .select("*")
+            .eq("status", "pending")
+            .order("created_at")
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise SupabaseError(f"Failed to fetch pending task: {exc}") from exc
     if not resp.data:
         return None
     task = resp.data[0]
@@ -81,6 +96,7 @@ def insert_step_log(
     actions: list[dict[str, Any]] | None = None,
     plan: str | None = None,
     url: str | None = None,
+    engine: str | None = None,
 ) -> None:
     row: dict[str, Any] = {
         "task_id": task_id,
@@ -101,7 +117,12 @@ def insert_step_log(
         row["plan"] = plan
     if url is not None:
         row["url"] = url
-    get_client().table("step_logs").insert(row).execute()
+    if engine is not None:
+        row["engine"] = engine
+    try:
+        get_client().table("step_logs").insert(row).execute()
+    except Exception as exc:
+        print(f"  [{platform}] Step log insert failed: {exc}")
 
 
 def insert_result(
@@ -114,6 +135,8 @@ def insert_result(
     error: str | None = None,
     strategy_name: str | None = None,
     attempt_number: int | None = None,
+    duration_seconds: float | None = None,
+    engine: str | None = None,
 ) -> None:
     row: dict[str, Any] = {
         "task_id": task_id,
@@ -128,4 +151,11 @@ def insert_result(
         row["strategy_name"] = strategy_name
     if attempt_number is not None:
         row["attempt_number"] = attempt_number
-    get_client().table("results").insert(row).execute()
+    if duration_seconds is not None:
+        row["duration_seconds"] = duration_seconds
+    if engine is not None:
+        row["engine"] = engine
+    try:
+        get_client().table("results").insert(row).execute()
+    except Exception as exc:
+        print(f"  [{platform}] Result insert failed: {exc}")

@@ -22,9 +22,11 @@ def analyze_failure(logs: list[dict[str, Any]], platform_name: str) -> str:
     last_goals = [entry.get("goal", "") for entry in platform_logs[-3:]]
     goals_text = " ".join(last_goals).lower()
 
-    if any(w in goals_text for w in ["验证码", "滑块", "captcha", "verify"]):
+    _captcha_keywords = frozenset(["验证码", "滑块", "captcha", "verify"])
+    _login_keywords = frozenset(["登录", "login", "注册", "sign in"])
+    if any(w in goals_text for w in _captcha_keywords):
         return "captcha"
-    if any(w in goals_text for w in ["登录", "login", "注册", "sign in"]):
+    if any(w in goals_text for w in _login_keywords):
         return "login_wall"
     if len(set(last_goals)) <= 1 and len(platform_logs) >= 5:
         return "navigation_stuck"
